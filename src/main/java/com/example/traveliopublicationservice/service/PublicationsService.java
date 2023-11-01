@@ -8,11 +8,13 @@ import com.example.traveliopublicationservice.repository.CommentRepository;
 import com.example.traveliopublicationservice.repository.LikeRepository;
 import com.example.traveliopublicationservice.repository.PostRepository;
 import lombok.AllArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -42,5 +44,21 @@ public class PublicationsService {
                 .author(author)
                 .build();
         return postRepository.save(post);
+    }
+
+    @Transactional
+    public Post getPost(long id) {
+        Optional<Post> byId = postRepository.findById(id);
+        if (byId.isPresent()) {
+            Post post = byId.get();
+            Hibernate.initialize(post.getAuthor());
+            Hibernate.initialize(post.getLikes());
+            return post;
+        }
+        return null;
+    }
+
+    public void update(Post post) {
+        postRepository.save(post);
     }
 }

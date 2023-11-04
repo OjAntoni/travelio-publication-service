@@ -34,6 +34,18 @@ public class PublicationsController {
         return new ResponseEntity<>(mapper.map(post), HttpStatus.OK);
     }
 
+    @PatchMapping("/publication/{id}")
+    public ResponseEntity<?> updatePublication(@RequestBody NewPostDto dto, @PathVariable long id){
+        Post post = publicationsService.updatePost(id, dto);
+        return new ResponseEntity<>(mapper.map(post), HttpStatus.OK);
+    }
+
+    @DeleteMapping("/publication/{id}")
+    public ResponseEntity<?> deletePublication(@RequestParam long id){
+        publicationsService.removePost(id);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
     @SneakyThrows
     @PostMapping("/publication/{id}/image")
     public ResponseEntity<?> uploadImage(@PathVariable long id, @RequestParam MultipartFile image){
@@ -47,10 +59,17 @@ public class PublicationsController {
         publicationsService.update(post);
         return new ResponseEntity<>(mapper.map(post), HttpStatus.OK);
     }
-//    @PatchMapping("/publication")
-//    public ResponseEntity<?> getPublication(@RequestParam long id){
-//
-//    }
+
+    @SneakyThrows
+    @DeleteMapping("/publication/{id}/image")
+    public ResponseEntity<?> deleteImage(@PathVariable long id){
+        if (publicationsService.getPost(id)==null) {
+            return ResponseEntity.badRequest().build();
+        }
+        publicationsService.removeImg(id);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
 //
 //    @DeleteMapping("/publication")
 //    public ResponseEntity<?> getPublication(@RequestParam long id){

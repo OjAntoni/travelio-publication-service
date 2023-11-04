@@ -61,4 +61,33 @@ public class PublicationsService {
     public void update(Post post) {
         postRepository.save(post);
     }
+
+    public void removeImg(long id) {
+        Optional<Post> byId = postRepository.findById(id);
+        if (byId.isPresent()) {
+            byId.get().setImage(null);
+            postRepository.save(byId.get());
+        }
+    }
+
+    @Transactional
+    public Post updatePost(long id, NewPostDto dto) {
+        postRepository.findById(id).ifPresent(p -> {
+            p.setTitle(dto.title);
+            p.setBody(dto.body);
+        });
+        Optional<Post> byId = postRepository.findById(id);
+        if (byId.isPresent()) {
+            Post post = byId.get();
+            Hibernate.initialize(post.getAuthor());
+            Hibernate.initialize(post.getLikes());
+            return post;
+        } else {
+            return null;
+        }
+    }
+
+    public void removePost(long id){
+        postRepository.findById(id);
+    }
 }

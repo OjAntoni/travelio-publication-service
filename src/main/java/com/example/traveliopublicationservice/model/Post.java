@@ -28,4 +28,11 @@ public class Post {
     @OneToMany(cascade = CascadeType.REMOVE)
     private List<Like> likes;
 
+    public void like(Like like){
+        likes.add(like);
+    }
+
+    public void dislike(Like like){
+
+    }
 }

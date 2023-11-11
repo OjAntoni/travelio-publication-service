@@ -1,8 +1,7 @@
 package com.example.traveliopublicationservice.service;
 
 import com.example.traveliopublicationservice.dto.NewPostDto;
-import com.example.traveliopublicationservice.model.Author;
-import com.example.traveliopublicationservice.model.Post;
+import com.example.traveliopublicationservice.model.*;
 import com.example.traveliopublicationservice.repository.AuthorRepository;
 import com.example.traveliopublicationservice.repository.CommentRepository;
 import com.example.traveliopublicationservice.repository.LikeRepository;
@@ -13,8 +12,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @AllArgsConstructor
@@ -88,6 +89,139 @@ public class PublicationsService {
     }
 
     public void removePost(long id){
-        postRepository.findById(id);
+        Optional<Post> byId = postRepository.findById(id);
+        byId.ifPresent(p -> {
+            removeCommentRecursive(p.getId());
+            commentRepository.deleteAllByRefEntityIdAndRefType(p.getId(), ERefType.POST);
+            postRepository.delete(p);
+        });
+    }
+
+    private void removeCommentRecursive(long postId){
+        List<Comment> commToPost = commentRepository.findAllByRefEntityIdAndRefType(postId, ERefType.POST);
+        commToPost.forEach(this::removeComm);
+    }
+
+    private void removeComm(Comment c) {
+        List<Comment> cc = commentRepository.findAllByRefEntityIdAndRefType(c.getId(), ERefType.Comment);
+        cc.forEach(this::removeComm);
+        commentRepository.delete(c);
+    }
+
+    @Transactional
+    public void likePost(long id, String username) {
+        Author author = null;
+        if (!authorRepository.existsByUsername(username)) {
+             author = authorRepository.save(Author.builder().username(username).rating(1).build());
+        }
+        author = authorRepository.getAuthorByUsername(username);
+
+        Optional<Post> byId = postRepository.findById(id);
+        if(byId.isPresent()){
+            Post post = byId.get();
+            Author finalAuthor = author;
+            boolean b = post.getLikes().stream().anyMatch(l -> l.getAuthor().getUsername().equals(finalAuthor.getUsername()));
+            if(!b){
+                Like saved = likeRepository.save(Like.builder().createdAt(LocalDateTime.now()).author(author).refType(ERefType.POST).build());
+                post.like(saved);
+            }
+        }
+    }
+
+    @Transactional
+    public void dislikePost(long id, String username) {
+        Author author = null;
+        if (!authorRepository.existsByUsername(username)) {
+            return;
+        }
+        author = authorRepository.getAuthorByUsername(username);
+
+        Optional<Post> byId = postRepository.findById(id);
+        if(byId.isPresent()){
+            Post post = byId.get();
+            Author finalAuthor = author;
+            post.getLikes().removeIf(l -> l.getAuthor().getUsername().equals(finalAuthor.getUsername()));
+        }
+    }
+
+    public List<Like> getLikes(long id) {
+        AtomicReference<List<Like>> likes = new AtomicReference<>(List.of());
+        Optional<Post> byId = postRepository.findById(id);
+        byId.ifPresent(p -> likes.set(p.getLikes()));
+        return likes.get();
+    }
+
+    @Transactional
+    public List<Comment> getComments(long id) {
+        List<Comment> finalList = new ArrayList<>(32);
+        List<Comment> commToPost = commentRepository.findAllByRefEntityIdAndRefType(id, ERefType.POST);
+        finalList.addAll(commToPost);
+        commToPost.forEach(c-> finalList.addAll(getCommentsToComment(c)));
+        return finalList;
+    }
+
+    private List<Comment> getCommentsToComment(Comment comment){
+        List<Comment> cc = commentRepository.findAllByRefEntityIdAndRefType(comment.getId(), ERefType.Comment);
+        for (Comment c : cc) {
+            cc.addAll(getCommentsToComment(c));
+        }
+        return cc;
+    }
+
+    public Author getAuthor(String username){
+        if (authorRepository.existsByUsername(username)) {
+            return authorRepository.getAuthorByUsername(username);
+        } else {
+            return authorRepository.save(Author.builder().username(username).rating(0).build());
+        }
+    }
+
+    public Comment createComment(Comment c) {
+        return commentRepository.save(c);
+    }
+
+    public void deleteComment(long id) {
+        commentRepository.findById(id).ifPresent(c -> c.setBody("DELETED"));
+    }
+
+    @Transactional
+    public Comment updateComment(long id, String newText) {
+        Optional<Comment> byId = commentRepository.findById(id);
+        byId.ifPresent(c -> c.setBody(newText));
+        return byId.orElse(null);
+    }
+
+    public void likeComment(long id, String username) {
+        Author author = null;
+        if (!authorRepository.existsByUsername(username)) {
+            author = authorRepository.save(Author.builder().username(username).rating(1).build());
+        }
+        author = authorRepository.getAuthorByUsername(username);
+
+        Optional<Comment> byId = commentRepository.findById(id);
+        if(byId.isPresent()){
+            Comment comment = byId.get();
+            Author finalAuthor = author;
+            boolean b = comment.getLikes().stream().anyMatch(l -> l.getAuthor().getUsername().equals(finalAuthor.getUsername()));
+            if(!b){
+                Like saved = likeRepository.save(Like.builder().createdAt(LocalDateTime.now()).author(author).refType(ERefType.Comment).build());
+                comment.like(saved);
+            }
+        }
+    }
+
+    public void dislikeComment(long id, String username) {
+        Author author = null;
+        if (!authorRepository.existsByUsername(username)) {
+            return;
+        }
+        author = authorRepository.getAuthorByUsername(username);
+
+        Optional<Comment> byId = commentRepository.findById(id);
+        if(byId.isPresent()){
+            Comment comment = byId.get();
+            Author finalAuthor = author;
+            comment.getLikes().removeIf(l -> l.getAuthor().getUsername().equals(finalAuthor.getUsername()));
+        }
     }
 }
